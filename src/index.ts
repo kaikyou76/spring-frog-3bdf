@@ -1,18 +1,70 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.toml`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { Hono } from "hono";
 
-export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World!');
-	},
-} satisfies ExportedHandler<Env>;
+const app = new Hono<{ Bindings: Bindings }>().basePath("/api");
+
+//データを登録（新規作成）
+app.post("/todos", async (c) => {
+  const { title, content } = await c.req.json();
+  try {
+    await c.env.DB.prepare("INSERT INTO todos (title, content) VALUES(?,?)")
+      .bind(title, content)
+      .run();
+    return c.json({ message: "Success!" }, 201);
+  } catch (error) {
+    return c.json({ err: error }, 500);
+  }
+});
+
+//全件取得
+app.get("/todos", async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare("SElECT * FROM todos").all();
+    return c.json(results);
+  } catch (error) {
+    return c.json({ err: error }, 500);
+  }
+});
+
+//1件取得
+app.get("/todos/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { results } = await c.env.DB.prepare(
+      "SElECT * FROM todos WHERE id = ?"
+    )
+      .bind(id)
+      .all();
+    return c.json(results);
+  } catch (error) {
+    return c.json({ err: error }, 500);
+  }
+});
+
+//1件更新
+app.put("/todos/:id", async (c) => {
+  const id = c.req.param("id");
+  const { title, content } = await c.req.json();
+  try {
+    await c.env.DB.prepare(
+      "UPDATE todos SET title = ?, content = ? WHERE id = ?"
+    )
+      .bind(title, content, id)
+      .run();
+    return c.json({ message: "Success!" }, 200);
+  } catch (error) {
+    return c.json({ err: error }, 500);
+  }
+});
+
+//1件削除
+app.delete("/todos/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    await c.env.DB.prepare("DELETE FROM todos WHERE id = ?").bind(id).run();
+    return c.json({ message: "Success!" }, 200);
+  } catch (error) {
+    return c.json({ err: error }, 500);
+  }
+});
+
+export default app;
