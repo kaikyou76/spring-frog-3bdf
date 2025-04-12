@@ -2,6 +2,11 @@ import { Hono } from "hono";
 
 const app = new Hono<{ Bindings: Bindings }>().basePath("/api");
 
+// ルートパスのハンドラを追加
+app.get("/", (c) => {
+  return c.text("Todo API is running! Access /todos to get todo items.");
+});
+
 //データを登録（新規作成）
 app.post("/todos", async (c) => {
   const { title, content } = await c.req.json();
@@ -18,7 +23,7 @@ app.post("/todos", async (c) => {
 //全件取得
 app.get("/todos", async (c) => {
   try {
-    const { results } = await c.env.DB.prepare("SElECT * FROM todos").all();
+    const { results } = await c.env.DB.prepare("SELECT * FROM todos").all();
     return c.json(results);
   } catch (error) {
     return c.json({ err: error }, 500);
